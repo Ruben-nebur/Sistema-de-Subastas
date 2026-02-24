@@ -1,83 +1,62 @@
-﻿# NetAuction (PSP) - Guia rapida
+# NetAuction (PSP) - Guia rapida
 
-Proyecto final de **Programacion de Servicios y Procesos** (2o DAM).
-Aplicacion de subastas en tiempo real con arquitectura cliente-servidor en Java.
+Proyecto final de Programacion de Servicios y Procesos (2o DAM).
 
-## 1) Estructura simplificada
+## Proyectos independientes
 
-- `src/common`: protocolo y constantes compartidas
-- `src/server`: servidor (usuarios, sesiones, subastas, notificaciones, BD)
-- `src/client`: cliente de consola
-- `src/client/gui`: cliente JavaFX
-- `scripts`: scripts de compilacion/ejecucion
-- `run.bat` / `run.sh`: lanzador unificado (comando corto)
-- `lib`: dependencias JAR
-- `data`: base de datos SQLite (`netauction.db`)
-- `logs`: auditoria (`audit.log`)
+- `server-app`: proyecto del servidor (src, lib, certs, data, run.bat propios).
+- `client-app`: proyecto del cliente (consola + GUI, src, lib, certs, run.bat propios).
 
-## 2) Requisitos
+## Requisitos
 
-- JDK 17+ (recomendado JDK 22)
-- (Opcional GUI) JavaFX SDK y variable `JAVAFX_HOME`
+- JDK 17+ con `keytool` disponible en PATH o JAVA_HOME.
+- (GUI) JavaFX SDK con `JAVAFX_HOME`.
 
-## 3) Arranque rapido (Windows)
+## Inicializar base de datos
 
+En `server-app`:
 ```bat
-run.bat setup
+run.bat initdb
+```
+
+Crea `server-app/data/netauction.db` y deja el sistema listo para persistir usuarios y subastas.
+
+## SSL obligatorio - mismo equipo
+
+1. Terminal 1 (servidor):
+```bat
+cd server-app
 run.bat compile
-run.bat server 9999 --ssl
-```
-
-En otra terminal:
-
-```bat
-run.bat client localhost 9999 --ssl
-```
-
-## 4) Arranque rapido (Linux/macOS)
-
-```bash
-./run.sh setup
-./run.sh compile
-./run.sh server 9999 --ssl
-```
-
-En otra terminal:
-
-```bash
-./run.sh client localhost 9999 --ssl
-```
-
-## 5) Comandos utiles
-
-```bat
 run.bat certs
+run.bat server 9999
+```
+
+2. Terminal 2 (cliente consola):
+```bat
+cd client-app
+run.bat compile
+run.bat client localhost 9999
+```
+
+3. Terminal 2 alternativa (GUI):
+```bat
+cd client-app
 run.bat gui
 ```
 
-## 6) Flujo funcional del sistema
+## SSL obligatorio - equipos distintos
 
-1. El cliente se conecta por TCP (opcional SSL/TLS).
-2. `LOGIN` crea una sesion con token UUID.
-3. Las acciones autenticadas usan ese token:
-   - `CREATE_AUCTION`
-   - `LIST_AUCTIONS`
-   - `AUCTION_DETAIL`
-   - `BID`
-   - `MY_HISTORY`
-4. El servidor envia notificaciones push:
-   - `NEW_BID`
-   - `OUTBID`
-   - `AUCTION_CLOSED`
-5. Un scheduler cierra subastas expiradas automaticamente.
-6. Se persiste en SQLite (`data/netauction.db`) y se audita en `logs/audit.log`.
+1. En el equipo servidor:
+- Ejecuta `server-app\\run.bat certs` y `server-app\\run.bat server 9999`.
+- Abre el puerto `9999` en firewall/router si aplica.
 
-## 7) Usuario admin por defecto
+2. Copia `server-app\\certs\\client.truststore` al equipo cliente en:
+- `client-app\\certs\\client.truststore`
 
-- Usuario: `admin`
-- Password: `admin123`
-
-## 8) Notas de mantenimiento
-
-- Si falta `lib/`, ejecutar `run.bat setup` o `./run.sh setup`.
-- Si hay warning SLF4J en consola, no bloquea el funcionamiento.
+3. En el equipo cliente:
+- Conecta usando la IP del servidor:
+```bat
+cd client-app
+run.bat client <IP_SERVIDOR> 9999
+```
+- En GUI, usa esa misma IP en el campo Host.
