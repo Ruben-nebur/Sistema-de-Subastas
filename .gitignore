@@ -31,8 +31,8 @@ server-app/data/*.db
 
 # TLS material (no subir a git)
 **/certs/*.p12
-!server-app/certs/servidor.p12
-!client-app/certs/server.cer
+!server-app/certs/ca.p12
+!client-app/certs/ca.cer
 server-app/certs/*.cer
 
 # Runtime dependencies versionadas

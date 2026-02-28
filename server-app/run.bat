@@ -53,8 +53,9 @@ exit /b %ERRORLEVEL%
 
 :certs
 if not exist "certs" mkdir certs
-if exist "certs\servidor.p12" if exist "certs\server.cer" (
-  if /I not "%~2"=="--force" (
+set "CERT_MODE=%~2"
+if exist "certs\ca.p12" if exist "certs\ca.cer" if exist "certs\servidor.p12" if exist "certs\server.cer" (
+  if /I not "%CERT_MODE%"=="--force" if /I not "%CERT_MODE%"=="--reset-ca" (
     echo [OK] Certificados existentes reutilizados.
     exit /b 0
   )
@@ -65,8 +66,13 @@ if not defined KEYTOOL (
   exit /b 1
 )
 
+if /I "%CERT_MODE%"=="--reset-ca" (
+  if exist "certs\ca.p12" del /q "certs\ca.p12"
+  if exist "certs\ca.cer" del /q "certs\ca.cer"
+)
 if exist "certs\servidor.p12" del /q "certs\servidor.p12"
 if exist "certs\server.cer" del /q "certs\server.cer"
+if exist "certs\server.csr" del /q "certs\server.csr"
 if exist "certs\truststore.p12" del /q "certs\truststore.p12"
 
 set "SAN_ENTRIES=dns:localhost,dns:%COMPUTERNAME%,ip:127.0.0.1"
@@ -80,32 +86,85 @@ for /f "tokens=2 delims=:" %%I in ('ipconfig ^| findstr /R /C:"IPv4.*:.*"') do (
 )
 :certs_san_done
 
-"%KEYTOOL%" -genkeypair -alias servidor ^
-  -keyalg RSA -keysize 2048 ^
-  -validity 365 ^
-  -keystore certs/servidor.p12 ^
+if not exist "certs\ca.p12" (
+  "%KEYTOOL%" -genkeypair -alias netauction-ca ^
+    -keyalg RSA -keysize 2048 ^
+    -validity 3650 ^
+    -keystore certs/ca.p12 ^
+    -storetype PKCS12 ^
+    -storepass netauction123 ^
+    -keypass netauction123 ^
+    -dname "CN=NetAuction CA, OU=NetAuction, O=PSP, L=Madrid, ST=Madrid, C=ES" ^
+    -ext bc:c
+  if errorlevel 1 exit /b 1
+)
+
+"%KEYTOOL%" -exportcert -alias netauction-ca ^
+  -keystore certs/ca.p12 ^
   -storetype PKCS12 ^
   -storepass netauction123 ^
-  -ext "SAN=%SAN_ENTRIES%" ^
-  -dname "CN=localhost, OU=NetAuction, O=PSP, L=Madrid, ST=Madrid, C=ES"
+  -rfc ^
+  -file certs/ca.cer
 if errorlevel 1 exit /b 1
 
-"%KEYTOOL%" -exportcert -alias servidor ^
+"%KEYTOOL%" -genkeypair -alias servidor ^
+  -keyalg RSA -keysize 2048 ^
+  -validity 825 ^
   -keystore certs/servidor.p12 ^
   -storetype PKCS12 ^
   -storepass netauction123 ^
-  -file certs/server.cer
+  -keypass netauction123 ^
+  -dname "CN=%COMPUTERNAME%, OU=NetAuction, O=PSP, L=Madrid, ST=Madrid, C=ES"
+if errorlevel 1 exit /b 1
+
+"%KEYTOOL%" -certreq -alias servidor ^
+  -keystore certs/servidor.p12 ^
+  -storetype PKCS12 ^
+  -storepass netauction123 ^
+  -file certs/server.csr
+if errorlevel 1 exit /b 1
+
+"%KEYTOOL%" -gencert -alias netauction-ca ^
+  -keystore certs/ca.p12 ^
+  -storetype PKCS12 ^
+  -storepass netauction123 ^
+  -keypass netauction123 ^
+  -infile certs/server.csr ^
+  -outfile certs/server.cer ^
+  -rfc ^
+  -validity 825 ^
+  -ext "KU=digitalSignature,keyEncipherment" ^
+  -ext "EKU=serverAuth" ^
+  -ext "SAN=%SAN_ENTRIES%"
+if errorlevel 1 exit /b 1
+
+"%KEYTOOL%" -importcert -alias netauction-ca ^
+  -file certs/ca.cer ^
+  -keystore certs/servidor.p12 ^
+  -storetype PKCS12 ^
+  -storepass netauction123 ^
+  -noprompt
 if errorlevel 1 exit /b 1
 
 "%KEYTOOL%" -importcert -alias servidor ^
   -file certs/server.cer ^
+  -keystore certs/servidor.p12 ^
+  -storetype PKCS12 ^
+  -storepass netauction123 ^
+  -noprompt
+if errorlevel 1 exit /b 1
+
+if exist "certs\truststore.p12" del /q "certs\truststore.p12"
+"%KEYTOOL%" -importcert -alias netauction-ca ^
+  -file certs/ca.cer ^
   -keystore certs/truststore.p12 ^
   -storetype PKCS12 ^
   -storepass netauction123 ^
   -noprompt
 if errorlevel 1 exit /b 1
 
-echo [OK] Certificados PKCS12 generados para el servidor.
+if exist "certs\server.csr" del /q "certs\server.csr"
+echo [OK] CA y certificado de servidor generados. El cliente debe confiar en certs\ca.cer.
 exit /b 0
 
 :find_keytool
@@ -164,6 +223,6 @@ exit /b %ERRORLEVEL%
 echo Uso:
 echo   .\run.bat compile
 echo   .\run.bat initdb
-echo   .\run.bat certs [--force]
+echo   .\run.bat certs [--force^|--reset-ca]
 echo   .\run.bat server [puerto]
 exit /b 0

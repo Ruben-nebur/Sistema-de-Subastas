@@ -19,6 +19,10 @@ if not exist "lib\gson-2.11.0.jar" (
   exit /b 1
 )
 if not exist "certs" mkdir certs
+if not exist "certs\ca.cer" (
+  echo [ERROR] Falta certs\ca.cer
+  exit /b 1
+)
 echo [OK] Dependencias cliente listas.
 exit /b 0
 
@@ -29,6 +33,10 @@ if not exist "lib\gson-2.11.0.jar" (
   exit /b 1
 )
 if not exist "certs" mkdir certs
+if not exist "certs\ca.cer" (
+  echo [ERROR] Falta certs\ca.cer
+  exit /b 1
+)
 if not exist "bin" mkdir bin
 javac -cp "lib/*" -d bin -sourcepath src ^
   src/common/*.java ^
@@ -45,23 +53,23 @@ echo [OK] Cliente compilado.
 exit /b 0
 
 :client
+if not exist "lib" mkdir lib
+if not exist "lib\gson-2.11.0.jar" (
+  echo [ERROR] Falta lib\gson-2.11.0.jar
+  exit /b 1
+)
+if not exist "certs" mkdir certs
+if not exist "certs\ca.cer" (
+  echo [ERROR] Falta certs\ca.cer.
+  echo         El cliente necesita el certificado de la CA del proyecto.
+  exit /b 1
+)
 if not exist "bin\client\NetAuctionClient.class" (
-  if not exist "lib" mkdir lib
-  if not exist "lib\gson-2.11.0.jar" (
-    echo [ERROR] Falta lib\gson-2.11.0.jar
-    exit /b 1
-  )
-  if not exist "certs" mkdir certs
   if not exist "bin" mkdir bin
   javac -cp "lib/*" -d bin -sourcepath src ^
     src/common/*.java ^
     src/client/*.java
   if errorlevel 1 exit /b 1
-)
-if not exist "certs\server.cer" (
-  echo [ERROR] Falta certs\server.cer.
-  echo         El cliente necesita el certificado publico versionado del servidor.
-  exit /b 1
 )
 echo [OK] Material SSL cliente listo.
 set "HOST=localhost"
@@ -78,6 +86,11 @@ if not exist "lib\gson-2.11.0.jar" (
   exit /b 1
 )
 if not exist "certs" mkdir certs
+if not exist "certs\ca.cer" (
+  echo [ERROR] Falta certs\ca.cer.
+  echo         El cliente necesita el certificado de la CA del proyecto.
+  exit /b 1
+)
 if not exist "bin\client\gui\MainApp.class" (
   if not exist "bin" mkdir bin
   javac -cp "lib/*" -d bin -sourcepath src ^
@@ -91,11 +104,6 @@ if not exist "bin\client\gui\MainApp.class" (
       src/client/gui/*.java
     if errorlevel 1 exit /b 1
   )
-)
-if not exist "certs\server.cer" (
-  echo [ERROR] Falta certs\server.cer.
-  echo         El cliente necesita el certificado publico versionado del servidor.
-  exit /b 1
 )
 echo [OK] Material SSL cliente listo.
 if not defined JAVAFX_HOME (

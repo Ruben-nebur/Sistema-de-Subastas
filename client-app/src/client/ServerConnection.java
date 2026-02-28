@@ -4,14 +4,12 @@ import common.Constants;
 import common.Message;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.security.KeyStore;
-import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -95,9 +93,9 @@ public class ServerConnection {
         trustStore.load(null, null);
 
         CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
-        try (FileInputStream fis = new FileInputStream(Constants.SERVER_CERTIFICATE_PATH)) {
-            Certificate serverCertificate = certificateFactory.generateCertificate(fis);
-            trustStore.setCertificateEntry("servidor", serverCertificate);
+        try (FileInputStream fis = new FileInputStream(Constants.CA_CERTIFICATE_PATH)) {
+            var caCertificate = certificateFactory.generateCertificate(fis);
+            trustStore.setCertificateEntry("netauction-ca", caCertificate);
         }
 
         TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
