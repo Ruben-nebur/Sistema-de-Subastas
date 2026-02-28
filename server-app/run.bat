@@ -79,12 +79,11 @@ set "SAN_ENTRIES=dns:localhost,dns:%COMPUTERNAME%,ip:127.0.0.1"
 for /f "tokens=2 delims=:" %%I in ('ipconfig ^| findstr /R /C:"IPv4.*:.*"') do (
   for /f "tokens=* delims= " %%J in ("%%I") do (
     if not "%%J"=="127.0.0.1" (
-      set "SAN_ENTRIES=!SAN_ENTRIES!,ip:%%J"
-      goto :certs_san_done
+      echo !SAN_ENTRIES! | find /I "ip:%%J" >nul
+      if errorlevel 1 set "SAN_ENTRIES=!SAN_ENTRIES!,ip:%%J"
     )
   )
 )
-:certs_san_done
 
 if not exist "certs\ca.p12" (
   "%KEYTOOL%" -genkeypair -alias netauction-ca ^
