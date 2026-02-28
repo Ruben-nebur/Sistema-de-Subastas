@@ -24,7 +24,7 @@ public class NetAuctionClient {
     private volatile boolean running;
 
     public NetAuctionClient() {
-        this(false);
+        this(true);
     }
 
     public NetAuctionClient(boolean sslEnabled) {
@@ -439,7 +439,7 @@ public class NetAuctionClient {
     public static void main(String[] args) {
         String host = Constants.SERVER_HOST;
         int port = Constants.SERVER_PORT;
-        boolean ssl = false;
+        boolean ssl = true;
 
         for (int i = 0; i < args.length; i++) {
             if ("--ssl".equalsIgnoreCase(args[i]) || "-ssl".equalsIgnoreCase(args[i])) {

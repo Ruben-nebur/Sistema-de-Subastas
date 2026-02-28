@@ -1,5 +1,6 @@
 @echo off
-setlocal EnableExtensions
+setlocal EnableExtensions EnableDelayedExpansion
+cd /d "%~dp0"
 
 if "%~1"=="" set "CMD=help"
 if not "%~1"=="" set "CMD=%~1"
@@ -52,6 +53,12 @@ exit /b %ERRORLEVEL%
 
 :certs
 if not exist "certs" mkdir certs
+if exist "certs\servidor.p12" if exist "certs\server.cer" (
+  if /I not "%~2"=="--force" (
+    echo [OK] Certificados existentes reutilizados.
+    exit /b 0
+  )
+)
 call :find_keytool || exit /b 1
 if not defined KEYTOOL (
   echo [ERROR] No se encontro keytool. Instala un JDK completo o configura JAVA_HOME.
@@ -62,12 +69,24 @@ if exist "certs\servidor.p12" del /q "certs\servidor.p12"
 if exist "certs\server.cer" del /q "certs\server.cer"
 if exist "certs\truststore.p12" del /q "certs\truststore.p12"
 
+set "SAN_ENTRIES=dns:localhost,dns:%COMPUTERNAME%,ip:127.0.0.1"
+for /f "tokens=2 delims=:" %%I in ('ipconfig ^| findstr /R /C:"IPv4.*:.*"') do (
+  for /f "tokens=* delims= " %%J in ("%%I") do (
+    if not "%%J"=="127.0.0.1" (
+      set "SAN_ENTRIES=!SAN_ENTRIES!,ip:%%J"
+      goto :certs_san_done
+    )
+  )
+)
+:certs_san_done
+
 "%KEYTOOL%" -genkeypair -alias servidor ^
   -keyalg RSA -keysize 2048 ^
   -validity 365 ^
   -keystore certs/servidor.p12 ^
   -storetype PKCS12 ^
   -storepass netauction123 ^
+  -ext "SAN=%SAN_ENTRIES%" ^
   -dname "CN=localhost, OU=NetAuction, O=PSP, L=Madrid, ST=Madrid, C=ES"
 if errorlevel 1 exit /b 1
 
@@ -86,10 +105,7 @@ if errorlevel 1 exit /b 1
   -noprompt
 if errorlevel 1 exit /b 1
 
-if not exist "..\client-app\certs" mkdir "..\client-app\certs"
-copy /Y "certs\server.cer" "..\client-app\certs\server.cer" >nul
-copy /Y "certs\truststore.p12" "..\client-app\certs\truststore.p12" >nul
-echo [OK] Certificados PKCS12 generados. Certificado publico y truststore sincronizados con client-app.
+echo [OK] Certificados PKCS12 generados para el servidor.
 exit /b 0
 
 :find_keytool
@@ -148,6 +164,6 @@ exit /b %ERRORLEVEL%
 echo Uso:
 echo   .\run.bat compile
 echo   .\run.bat initdb
-echo   .\run.bat certs
+echo   .\run.bat certs [--force]
 echo   .\run.bat server [puerto]
 exit /b 0

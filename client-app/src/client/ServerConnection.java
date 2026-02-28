@@ -4,13 +4,20 @@ import common.Constants;
 import common.Message;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.security.KeyStore;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateFactory;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLParameters;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManagerFactory;
@@ -44,7 +51,7 @@ public class ServerConnection {
      */
     public ServerConnection() {
         this.connected = false;
-        this.sslEnabled = false;
+        this.sslEnabled = true;
     }
 
     /**
@@ -65,15 +72,16 @@ public class ServerConnection {
      * @throws IOException si no se puede conectar
      */
     public void connect(String host, int port) throws IOException {
-        if (sslEnabled) {            
-            try {               
-                socket = createSSLSocket(host, port);               
-                 System.out.println("[CONNECTION] Conexion SSL establecida");            
-                } catch (Exception e) {                
-                    throw new IOException("No se pudo establecer SSL/TLS: " + e.getMessage(), e);}        
-                } else {            
-                    socket = new Socket(host, port);        
-                }
+        if (sslEnabled) {
+            try {
+                socket = createSSLSocket(host, port);
+                System.out.println("[CONNECTION] Conexion SSL establecida");
+            } catch (Exception e) {
+                throw new IOException("No se pudo establecer SSL/TLS: " + e.getMessage(), e);
+            }
+        } else {
+            socket = new Socket(host, port);
+        }
         out = new PrintWriter(socket.getOutputStream(), true);
         in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
         connected = true;
@@ -83,26 +91,45 @@ public class ServerConnection {
      * Crea un socket SSL para conexion segura.
      */
     private SSLSocket createSSLSocket(String host, int port) throws Exception {
-        // Cargar truststore
-        KeyStore trustStore = KeyStore.getInstance("PKCS12");
-        try (FileInputStream fis = new FileInputStream(Constants.CLIENT_TRUSTSTORE_PATH)) {
-            trustStore.load(fis, Constants.KEYSTORE_PASSWORD.toCharArray());
+        KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
+        trustStore.load(null, null);
+
+        CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");
+        try (FileInputStream fis = new FileInputStream(Constants.SERVER_CERTIFICATE_PATH)) {
+            Certificate serverCertificate = certificateFactory.generateCertificate(fis);
+            trustStore.setCertificateEntry("servidor", serverCertificate);
         }
 
-        // Crear TrustManagerFactory
         TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
         tmf.init(trustStore);
 
-        // Crear SSLContext
-        SSLContext sslContext = SSLContext.getInstance("TLSv1.3");
+        SSLContext sslContext = SSLContext.getInstance("TLS");
         sslContext.init(null, tmf.getTrustManagers(), null);
 
         SSLSocketFactory factory = sslContext.getSocketFactory();
         SSLSocket sslSocket = (SSLSocket) factory.createSocket(host, port);
-        sslSocket.setEnabledProtocols(new String[]{"TLSv1.3"});
+        sslSocket.setEnabledProtocols(getEnabledProtocols(sslSocket.getSupportedProtocols()));
+        SSLParameters sslParameters = sslSocket.getSSLParameters();
+        sslParameters.setEndpointIdentificationAlgorithm("HTTPS");
+        sslSocket.setSSLParameters(sslParameters);
         sslSocket.startHandshake();
 
         return sslSocket;
+    }
+
+    private String[] getEnabledProtocols(String[] supportedProtocols) {
+        List<String> enabled = new ArrayList<>();
+        List<String> supported = Arrays.asList(supportedProtocols);
+        if (supported.contains("TLSv1.3")) {
+            enabled.add("TLSv1.3");
+        }
+        if (supported.contains("TLSv1.2")) {
+            enabled.add("TLSv1.2");
+        }
+        if (enabled.isEmpty()) {
+            throw new IllegalStateException("La JVM no soporta TLSv1.2 ni TLSv1.3");
+        }
+        return enabled.toArray(new String[0]);
     }
 
     /**

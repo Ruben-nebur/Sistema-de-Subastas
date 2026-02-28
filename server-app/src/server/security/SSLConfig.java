@@ -4,8 +4,10 @@ import common.Constants;
 
 import javax.net.ssl.*;
 import java.io.FileInputStream;
-import java.io.IOException;
 import java.security.KeyStore;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Configuración SSL/TLS para comunicación segura.
@@ -45,7 +47,7 @@ public final class SSLConfig {
         kmf.init(keyStore, keystorePassword.toCharArray());
 
         // Crear SSLContext
-        SSLContext sslContext = SSLContext.getInstance("TLSv1.3");
+        SSLContext sslContext = SSLContext.getInstance("TLS");
         sslContext.init(kmf.getKeyManagers(), null, null);
 
         return sslContext.getServerSocketFactory();
@@ -86,7 +88,7 @@ public final class SSLConfig {
         tmf.init(trustStore);
 
         // Crear SSLContext
-        SSLContext sslContext = SSLContext.getInstance("TLSv1.3");
+        SSLContext sslContext = SSLContext.getInstance("TLS");
         sslContext.init(null, tmf.getTrustManagers(), null);
 
         return sslContext.getSocketFactory();
@@ -117,7 +119,7 @@ public final class SSLConfig {
         SSLServerSocket serverSocket = (SSLServerSocket) factory.createServerSocket(port);
 
         // Configurar protocolos y cifrados
-        serverSocket.setEnabledProtocols(new String[]{"TLSv1.3"});
+        serverSocket.setEnabledProtocols(getEnabledProtocols(serverSocket.getSupportedProtocols()));
 
         return serverSocket;
     }
@@ -135,7 +137,7 @@ public final class SSLConfig {
         SSLSocket socket = (SSLSocket) factory.createSocket(host, port);
 
         // Configurar protocolos
-        socket.setEnabledProtocols(new String[]{"TLSv1.3"});
+        socket.setEnabledProtocols(getEnabledProtocols(socket.getSupportedProtocols()));
 
         // Iniciar handshake
         socket.startHandshake();
@@ -152,5 +154,20 @@ public final class SSLConfig {
         java.io.File keystore = new java.io.File(Constants.SERVER_KEYSTORE_PATH);
         java.io.File truststore = new java.io.File(Constants.CLIENT_TRUSTSTORE_PATH);
         return keystore.exists() && truststore.exists();
+    }
+
+    private static String[] getEnabledProtocols(String[] supportedProtocols) {
+        List<String> enabled = new ArrayList<>();
+        List<String> supported = Arrays.asList(supportedProtocols);
+        if (supported.contains("TLSv1.3")) {
+            enabled.add("TLSv1.3");
+        }
+        if (supported.contains("TLSv1.2")) {
+            enabled.add("TLSv1.2");
+        }
+        if (enabled.isEmpty()) {
+            throw new IllegalStateException("La JVM no soporta TLSv1.2 ni TLSv1.3");
+        }
+        return enabled.toArray(new String[0]);
     }
 }

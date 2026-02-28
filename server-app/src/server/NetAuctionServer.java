@@ -34,7 +34,7 @@ public class NetAuctionServer {
     private boolean sslEnabled;
 
     public NetAuctionServer(int port) {
-        this(port, false);
+        this(port, true);
     }
 
     public NetAuctionServer(int port, boolean sslEnabled) {
@@ -79,10 +79,7 @@ public class NetAuctionServer {
                 serverSocket = SSLConfig.createServerSocket(port);
                 System.out.println("[SERVER] SSL/TLS habilitado");
             } catch (Exception e) {
-                System.err.println("[SERVER] Error habilitando SSL: " + e.getMessage());
-                System.out.println("[SERVER] Usando conexion sin cifrar...");
-                serverSocket = new ServerSocket(port);
-                sslEnabled = false;
+                throw new IOException("No se pudo inicializar SSL/TLS obligatorio", e);
             }
         } else {
             serverSocket = new ServerSocket(port);
@@ -148,7 +145,7 @@ public class NetAuctionServer {
 
     public static void main(String[] args) {
         int port = Constants.SERVER_PORT;
-        boolean ssl = false;
+        boolean ssl = true;
 
         for (String arg : args) {
             if ("--ssl".equalsIgnoreCase(arg) || "-ssl".equalsIgnoreCase(arg)) {
