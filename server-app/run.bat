@@ -77,34 +77,38 @@ if not defined KEYTOOL (
   exit /b 1
 )
 
-if exist "certs\server.keystore" del /q "certs\server.keystore"
+if exist "certs\servidor.p12" del /q "certs\servidor.p12"
 if exist "certs\server.cer" del /q "certs\server.cer"
-if exist "certs\client.truststore" del /q "certs\client.truststore"
+if exist "certs\truststore.p12" del /q "certs\truststore.p12"
 
-"%KEYTOOL%" -genkeypair -alias netauction ^
+"%KEYTOOL%" -genkeypair -alias servidor ^
   -keyalg RSA -keysize 2048 ^
   -validity 365 ^
-  -keystore certs/server.keystore ^
+  -keystore certs/servidor.p12 ^
+  -storetype PKCS12 ^
   -storepass netauction123 ^
   -dname "CN=localhost, OU=NetAuction, O=PSP, L=Madrid, ST=Madrid, C=ES"
 if errorlevel 1 exit /b 1
 
-"%KEYTOOL%" -exportcert -alias netauction ^
-  -keystore certs/server.keystore ^
+"%KEYTOOL%" -exportcert -alias servidor ^
+  -keystore certs/servidor.p12 ^
+  -storetype PKCS12 ^
   -storepass netauction123 ^
   -file certs/server.cer
 if errorlevel 1 exit /b 1
 
-"%KEYTOOL%" -importcert -alias netauction ^
+"%KEYTOOL%" -importcert -alias servidor ^
   -file certs/server.cer ^
-  -keystore certs/client.truststore ^
+  -keystore certs/truststore.p12 ^
+  -storetype PKCS12 ^
   -storepass netauction123 ^
   -noprompt
 if errorlevel 1 exit /b 1
 
 if not exist "..\client-app\certs" mkdir "..\client-app\certs"
-copy /Y "certs\client.truststore" "..\client-app\certs\client.truststore" >nul
-echo [OK] Certificados generados y truststore sincronizado con client-app.
+copy /Y "certs\server.cer" "..\client-app\certs\server.cer" >nul
+copy /Y "certs\truststore.p12" "..\client-app\certs\truststore.p12" >nul
+echo [OK] Certificados PKCS12 generados. Certificado publico y truststore sincronizados con client-app.
 exit /b 0
 
 :server
@@ -114,8 +118,8 @@ set "SSL_FLAG=--ssl"
 if not "%~2"=="" (
   if /I not "%~2"=="--ssl" if /I not "%~2"=="-ssl" set "PORT=%~2"
 )
-if not exist "certs\server.keystore" call :certs || exit /b 1
-if not exist "certs\client.truststore" call :certs || exit /b 1
+if not exist "certs\servidor.p12" call :certs || exit /b 1
+if not exist "certs\truststore.p12" call :certs || exit /b 1
 java -cp "lib/*;bin" server.NetAuctionServer %PORT% %SSL_FLAG%
 exit /b %ERRORLEVEL%
 

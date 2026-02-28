@@ -35,7 +35,7 @@ public final class SSLConfig {
             throws Exception {
 
         // Cargar keystore
-        KeyStore keyStore = KeyStore.getInstance("JKS");
+        KeyStore keyStore = KeyStore.getInstance("PKCS12");
         try (FileInputStream fis = new FileInputStream(keystorePath)) {
             keyStore.load(fis, keystorePassword.toCharArray());
         }
@@ -45,7 +45,7 @@ public final class SSLConfig {
         kmf.init(keyStore, keystorePassword.toCharArray());
 
         // Crear SSLContext
-        SSLContext sslContext = SSLContext.getInstance("TLS");
+        SSLContext sslContext = SSLContext.getInstance("TLSv1.3");
         sslContext.init(kmf.getKeyManagers(), null, null);
 
         return sslContext.getServerSocketFactory();
@@ -76,7 +76,7 @@ public final class SSLConfig {
             throws Exception {
 
         // Cargar truststore
-        KeyStore trustStore = KeyStore.getInstance("JKS");
+        KeyStore trustStore = KeyStore.getInstance("PKCS12");
         try (FileInputStream fis = new FileInputStream(truststorePath)) {
             trustStore.load(fis, truststorePassword.toCharArray());
         }
@@ -86,7 +86,7 @@ public final class SSLConfig {
         tmf.init(trustStore);
 
         // Crear SSLContext
-        SSLContext sslContext = SSLContext.getInstance("TLS");
+        SSLContext sslContext = SSLContext.getInstance("TLSv1.3");
         sslContext.init(null, tmf.getTrustManagers(), null);
 
         return sslContext.getSocketFactory();
@@ -117,7 +117,7 @@ public final class SSLConfig {
         SSLServerSocket serverSocket = (SSLServerSocket) factory.createServerSocket(port);
 
         // Configurar protocolos y cifrados
-        serverSocket.setEnabledProtocols(new String[]{"TLSv1.2", "TLSv1.3"});
+        serverSocket.setEnabledProtocols(new String[]{"TLSv1.3"});
 
         return serverSocket;
     }
@@ -135,7 +135,7 @@ public final class SSLConfig {
         SSLSocket socket = (SSLSocket) factory.createSocket(host, port);
 
         // Configurar protocolos
-        socket.setEnabledProtocols(new String[]{"TLSv1.2", "TLSv1.3"});
+        socket.setEnabledProtocols(new String[]{"TLSv1.3"});
 
         // Iniciar handshake
         socket.startHandshake();

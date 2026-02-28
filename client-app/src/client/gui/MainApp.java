@@ -83,7 +83,9 @@ public class MainApp extends Application {
         portField.setPromptText("Puerto");
         portField.setMaxWidth(250);
 
-        CheckBox sslCheck = new CheckBox("Conexion segura obligatoria (SSL/TLS)");`r`n        sslCheck.setSelected(true);`r`n        sslCheck.setDisable(true);
+        CheckBox sslCheck = new CheckBox("Conexion segura obligatoria (SSL/TLS)");
+        sslCheck.setSelected(true);
+        sslCheck.setDisable(true);
 
         Button connectBtn = new Button("Conectar");
         connectBtn.setStyle("-fx-background-color: #3498db; -fx-text-fill: white; -fx-font-size: 14px;");

@@ -50,8 +50,8 @@ public final class Constants {
     // ==================== RUTAS DE ARCHIVOS ====================
 
     public static final String DATABASE_PATH = "data/netauction.db";
-    public static final String SERVER_KEYSTORE_PATH = "certs/server.keystore";
-    public static final String CLIENT_TRUSTSTORE_PATH = "certs/client.truststore";
+    public static final String SERVER_KEYSTORE_PATH = "certs/servidor.p12";
+    public static final String CLIENT_TRUSTSTORE_PATH = "certs/truststore.p12";
     public static final String KEYSTORE_PASSWORD = "netauction123";
 
     private Constants() {

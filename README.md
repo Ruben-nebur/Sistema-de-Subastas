@@ -12,6 +12,15 @@ Proyecto final de Programacion de Servicios y Procesos (2o DAM).
 - JDK 17+ con `keytool` disponible en PATH o JAVA_HOME.
 - (GUI) JavaFX SDK con `JAVAFX_HOME`.
 
+## Modelo TLS usado
+
+- Servidor: `certs/servidor.p12` con clave privada.
+- Cliente: `certs/server.cer` como certificado publico confiable.
+- Cliente: `certs/truststore.p12` generado localmente a partir de `server.cer`.
+
+El archivo que puede compartirse entre equipos es solo `server.cer`.
+No debe compartirse `servidor.p12`.
+
 ## Inicializar base de datos
 
 En `server-app`:
@@ -34,6 +43,7 @@ run.bat server 9999
 2. Terminal 2 (cliente consola):
 ```bat
 cd client-app
+run.bat truststore
 run.bat compile
 run.bat client localhost 9999
 ```
@@ -50,10 +60,16 @@ run.bat gui
 - Ejecuta `server-app\\run.bat certs` y `server-app\\run.bat server 9999`.
 - Abre el puerto `9999` en firewall/router si aplica.
 
-2. Copia `server-app\\certs\\client.truststore` al equipo cliente en:
-- `client-app\\certs\\client.truststore`
+2. En el equipo cliente debe existir el certificado publico:
+- `client-app\\certs\\server.cer`
+- Ese fichero puede ir ya incluido en el repositorio o en el paquete del cliente.
 
 3. En el equipo cliente:
+- Genera el truststore local:
+```bat
+cd client-app
+run.bat truststore
+```
 - Conecta usando la IP del servidor:
 ```bat
 cd client-app

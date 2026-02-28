@@ -65,18 +65,26 @@ public class ServerConnection {
      * @throws IOException si no se puede conectar
      */
     public void connect(String host, int port) throws IOException {
-        if (sslEnabled) {`r`n            try {`r`n                socket = createSSLSocket(host, port);`r`n                System.out.println("[CONNECTION] Conexion SSL establecida");`r`n            } catch (Exception e) {`r`n                throw new IOException("No se pudo establecer SSL/TLS: " + e.getMessage(), e);`r`n            }`r`n        } else {`r`n            socket = new Socket(host, port);`r`n        }
+        if (sslEnabled) {            
+            try {               
+                socket = createSSLSocket(host, port);               
+                 System.out.println("[CONNECTION] Conexion SSL establecida");            
+                } catch (Exception e) {                
+                    throw new IOException("No se pudo establecer SSL/TLS: " + e.getMessage(), e);}        
+                } else {            
+                    socket = new Socket(host, port);        
+                }
         out = new PrintWriter(socket.getOutputStream(), true);
         in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
         connected = true;
     }
 
     /**
-     * Crea un socket SSL para conexi??n segura.
+     * Crea un socket SSL para conexion segura.
      */
     private SSLSocket createSSLSocket(String host, int port) throws Exception {
         // Cargar truststore
-        KeyStore trustStore = KeyStore.getInstance("JKS");
+        KeyStore trustStore = KeyStore.getInstance("PKCS12");
         try (FileInputStream fis = new FileInputStream(Constants.CLIENT_TRUSTSTORE_PATH)) {
             trustStore.load(fis, Constants.KEYSTORE_PASSWORD.toCharArray());
         }
@@ -86,12 +94,12 @@ public class ServerConnection {
         tmf.init(trustStore);
 
         // Crear SSLContext
-        SSLContext sslContext = SSLContext.getInstance("TLS");
+        SSLContext sslContext = SSLContext.getInstance("TLSv1.3");
         sslContext.init(null, tmf.getTrustManagers(), null);
 
         SSLSocketFactory factory = sslContext.getSocketFactory();
         SSLSocket sslSocket = (SSLSocket) factory.createSocket(host, port);
-        sslSocket.setEnabledProtocols(new String[]{"TLSv1.2", "TLSv1.3"});
+        sslSocket.setEnabledProtocols(new String[]{"TLSv1.3"});
         sslSocket.startHandshake();
 
         return sslSocket;

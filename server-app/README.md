@@ -18,7 +18,11 @@ La base de datos se guarda en `server-app/data/netauction.db`.
 ## SSL
 
 `run.bat certs` genera:
-- `server-app/certs/server.keystore`
-- `server-app/certs/client.truststore`
+- `server-app/certs/servidor.p12`
+- `server-app/certs/server.cer`
+- `server-app/certs/truststore.p12`
 
-Ademas sincroniza automaticamente `client.truststore` en `../client-app/certs`.
+Ademas sincroniza automaticamente `server.cer` y `truststore.p12` en `../client-app/certs`.
+
+Para despliegue en otro equipo cliente, solo debe compartirse `server.cer`.
+El archivo `servidor.p12` contiene la clave privada del servidor y no debe salir del equipo servidor.
