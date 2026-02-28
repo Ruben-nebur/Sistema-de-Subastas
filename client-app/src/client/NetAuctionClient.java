@@ -4,6 +4,7 @@ import common.Constants;
 import common.Message;
 
 import java.io.BufferedReader;
+import java.io.Console;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.concurrent.ExecutorService;
@@ -127,8 +128,9 @@ public class NetAuctionClient {
 
     private void printHelp() {
         System.out.println("COMANDOS DISPONIBLES");
-        System.out.println("  register <user> <password> <email>");
-        System.out.println("  login <user> <password>");
+        System.out.println("  register <user> <email>      (pedira la contrasena de forma oculta)");
+        System.out.println("  login <user>                (pedira la contrasena de forma oculta)");
+        System.out.println("  login <user> <password>     (compatibilidad)");
         System.out.println("  logout");
         System.out.println("  create <titulo> <precio> <minutos>");
         System.out.println("  list");
@@ -155,29 +157,41 @@ public class NetAuctionClient {
 
     private void handleRegister(String args) throws IOException {
         String[] parts = args.split("\\s+");
-        if (parts.length < 3) {
-            System.out.println("[CLIENT] Uso: register <user> <password> <email>");
+        if (parts.length < 2) {
+            System.out.println("[CLIENT] Uso: register <user> <email>");
+            return;
+        }
+
+        String password = readSecret("Contrasena: ");
+        if (password == null || password.isEmpty()) {
+            System.out.println("[CLIENT] La contrasena es obligatoria");
             return;
         }
 
         Message request = new Message(Constants.ACTION_REGISTER);
         request.addData("user", parts[0]);
-        request.addData("password", parts[1]);
-        request.addData("email", parts[2]);
+        request.addData("password", password);
+        request.addData("email", parts[1]);
 
         sendAndReceive(request);
     }
 
     private void handleLogin(String args) throws IOException {
         String[] parts = args.split("\\s+");
-        if (parts.length < 2) {
-            System.out.println("[CLIENT] Uso: login <user> <password>");
+        if (parts.length < 1 || parts[0].isEmpty()) {
+            System.out.println("[CLIENT] Uso: login <user>");
+            return;
+        }
+
+        String password = parts.length >= 2 ? parts[1] : readSecret("Contrasena: ");
+        if (password == null || password.isEmpty()) {
+            System.out.println("[CLIENT] La contrasena es obligatoria");
             return;
         }
 
         Message request = new Message(Constants.ACTION_LOGIN);
         request.addData("user", parts[0]);
-        request.addData("password", parts[1]);
+        request.addData("password", password);
 
         Message response = sendAndReceive(request);
 
@@ -412,6 +426,17 @@ public class NetAuctionClient {
         if (str == null) return "";
         if (str.length() <= maxLen) return str;
         return str.substring(0, maxLen - 3) + "...";
+    }
+
+    private String readSecret(String prompt) throws IOException {
+        Console console = System.console();
+        if (console != null) {
+            char[] secret = console.readPassword(prompt);
+            return secret != null ? new String(secret) : null;
+        }
+
+        System.out.print(prompt);
+        return consoleReader.readLine();
     }
 
     private void disconnect() {
