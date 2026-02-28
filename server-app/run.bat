@@ -52,26 +52,7 @@ exit /b %ERRORLEVEL%
 
 :certs
 if not exist "certs" mkdir certs
-set "KEYTOOL="
-if defined JAVA_HOME (
-  set "JAVA_HOME_CLEAN=%JAVA_HOME:"=%"
-  if exist "%JAVA_HOME_CLEAN%\bin\keytool.exe" set "KEYTOOL=%JAVA_HOME_CLEAN%\bin\keytool.exe"
-)
-if not defined KEYTOOL (
-  for /f "delims=" %%I in ('where keytool 2^>nul') do (
-    set "KEYTOOL=%%I"
-    goto :keytool_found
-  )
-)
-if not defined KEYTOOL (
-  for /f "delims=" %%I in ('where javac 2^>nul') do (
-    if exist "%%~dpIkeytool.exe" (
-      set "KEYTOOL=%%~dpIkeytool.exe"
-      goto :keytool_found
-    )
-  )
-)
-:keytool_found
+call :find_keytool || exit /b 1
 if not defined KEYTOOL (
   echo [ERROR] No se encontro keytool. Instala un JDK completo o configura JAVA_HOME.
   exit /b 1
@@ -109,6 +90,46 @@ if not exist "..\client-app\certs" mkdir "..\client-app\certs"
 copy /Y "certs\server.cer" "..\client-app\certs\server.cer" >nul
 copy /Y "certs\truststore.p12" "..\client-app\certs\truststore.p12" >nul
 echo [OK] Certificados PKCS12 generados. Certificado publico y truststore sincronizados con client-app.
+exit /b 0
+
+:find_keytool
+set "KEYTOOL="
+if defined JAVA_HOME (
+  set "JAVA_HOME_CLEAN=%JAVA_HOME:"=%"
+  if exist "%JAVA_HOME_CLEAN%\bin\keytool.exe" set "KEYTOOL=%JAVA_HOME_CLEAN%\bin\keytool.exe"
+)
+if not defined KEYTOOL (
+  for /f "delims=" %%I in ('where keytool 2^>nul') do (
+    set "KEYTOOL=%%I"
+    goto :find_keytool_done
+  )
+)
+if not defined KEYTOOL (
+  for /f "tokens=2,* delims==" %%A in ('java -XshowSettings:properties -version 2^>^&1 ^| findstr /I /C:"java.home ="') do (
+    set "JAVA_HOME_FROM_JAVA=%%B"
+  )
+  if defined JAVA_HOME_FROM_JAVA (
+    for /f "tokens=* delims= " %%H in ("%JAVA_HOME_FROM_JAVA%") do set "JAVA_HOME_FROM_JAVA=%%H"
+    if exist "%JAVA_HOME_FROM_JAVA%\bin\keytool.exe" set "KEYTOOL=%JAVA_HOME_FROM_JAVA%\bin\keytool.exe"
+  )
+)
+if not defined KEYTOOL (
+  for /d %%D in ("%ProgramFiles%\Java\jdk*") do (
+    if exist "%%~fD\bin\keytool.exe" (
+      set "KEYTOOL=%%~fD\bin\keytool.exe"
+      goto :find_keytool_done
+    )
+  )
+)
+if not defined KEYTOOL (
+  for /f "delims=" %%I in ('where javac 2^>nul') do (
+    if exist "%%~dpIkeytool.exe" (
+      set "KEYTOOL=%%~dpIkeytool.exe"
+      goto :find_keytool_done
+    )
+  )
+)
+:find_keytool_done
 exit /b 0
 
 :server
