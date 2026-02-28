@@ -32,3 +32,7 @@ server-app/data/*.db
 # TLS material (no subir a git)
 **/certs/*.p12
 server-app/certs/*.cer
+
+# Runtime dependencies versionadas
+!server-app/lib/*.jar
+!client-app/lib/*.jar
