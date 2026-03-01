@@ -183,6 +183,10 @@ public class ClientHandler implements Runnable {
         // Notificar al servicio de notificaciones si hay usuario autenticado
         // (se implementará en fases posteriores)
 
+        if (protocolHandler != null) {
+            protocolHandler.handleClientDisconnect(this);
+        }
+
         try {
             if (in != null) {
                 in.close();

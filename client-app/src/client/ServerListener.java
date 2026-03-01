@@ -80,6 +80,13 @@ public class ServerListener implements Runnable {
     }
 
     /**
+     * Elimina respuestas pendientes para evitar reutilizar mensajes antiguos.
+     */
+    public void clearResponses() {
+        responseQueue.clear();
+    }
+
+    /**
      * Detiene el listener.
      */
     public void stop() {

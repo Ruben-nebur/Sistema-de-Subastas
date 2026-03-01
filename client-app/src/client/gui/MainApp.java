@@ -67,6 +67,7 @@ public class MainApp extends Application {
     }
 
     private void showConnectionView() {
+        resetAppState(false);
         VBox connectBox = new VBox(15);
         connectBox.setAlignment(Pos.CENTER);
         connectBox.setPadding(new Insets(50));
@@ -130,6 +131,7 @@ public class MainApp extends Application {
     }
 
     public void showLoginView() {
+        resetAppState(connection != null && connection.isConnected());
         VBox loginBox = new VBox(15);
         loginBox.setAlignment(Pos.CENTER);
         loginBox.setPadding(new Insets(50));
@@ -167,12 +169,10 @@ public class MainApp extends Application {
             }
 
             try {
-                Message request = new Message(Constants.ACTION_LOGIN);
-                request.addData("user", user);
-                request.addData("password", pass);
-
-                connection.send(request);
-                Message response = serverListener.getNextResponse(10000);
+                Message request = new Message(Constants.ACTION_LOGIN)
+                    .addData("user", user)
+                    .addData("password", pass);
+                Message response = sendRequest(request);
 
                 if (response != null && response.isSuccess()) {
                     sessionToken = response.getDataString("token");
@@ -251,13 +251,11 @@ public class MainApp extends Application {
             }
 
             try {
-                Message request = new Message(Constants.ACTION_REGISTER);
-                request.addData("user", user);
-                request.addData("password", pass);
-                request.addData("email", email);
-
-                connection.send(request);
-                Message response = serverListener.getNextResponse(10000);
+                Message request = new Message(Constants.ACTION_REGISTER)
+                    .addData("user", user)
+                    .addData("password", pass)
+                    .addData("email", email);
+                Message response = sendRequest(request);
 
                 if (response != null && response.isSuccess()) {
                     successLabel.setText("Registro exitoso. Ya puede iniciar sesion.");
@@ -318,9 +316,7 @@ public class MainApp extends Application {
         try {
             Message request = new Message(Constants.ACTION_LIST_AUCTIONS);
             request.setToken(sessionToken);
-
-            connection.send(request);
-            Message response = serverListener.getNextResponse(10000);
+            Message response = sendRequest(request);
 
             if (response != null && response.isSuccess()) {
                 VBox auctionList = new VBox(10);
@@ -398,9 +394,7 @@ public class MainApp extends Application {
             Message request = new Message(Constants.ACTION_AUCTION_DETAIL);
             request.setToken(sessionToken);
             request.addData("auctionId", auctionId);
-
-            connection.send(request);
-            Message response = serverListener.getNextResponse(10000);
+            Message response = sendRequest(request);
 
             if (response != null && response.isSuccess()) {
                 VBox detailBox = new VBox(15);
@@ -451,9 +445,7 @@ public class MainApp extends Application {
                         bidRequest.setToken(sessionToken);
                         bidRequest.addData("auctionId", aId);
                         bidRequest.addData("amount", amount);
-
-                        connection.send(bidRequest);
-                        Message bidResponse = serverListener.getNextResponse(10000);
+                        Message bidResponse = sendRequest(bidRequest);
 
                         if (bidResponse != null && bidResponse.isSuccess()) {
                             bidStatus.setText("Puja realizada");
@@ -525,9 +517,7 @@ public class MainApp extends Application {
                     request.addData("description", descField.getText().trim());
                     request.addData("startPrice", Double.parseDouble(priceField.getText().trim()));
                     request.addData("durationMinutes", Integer.parseInt(durationField.getText().trim()));
-
-                    connection.send(request);
-                    Message response = serverListener.getNextResponse(10000);
+                    Message response = sendRequest(request);
 
                     if (response != null && response.isSuccess()) {
                         showInfo("Subasta creada correctamente");
@@ -594,20 +584,25 @@ public class MainApp extends Application {
     }
 
     private void logout() {
+        Message response = null;
         try {
             Message request = new Message(Constants.ACTION_LOGOUT);
             request.setToken(sessionToken);
-            connection.send(request);
+            response = sendRequest(request);
         } catch (IOException e) {
-            // Ignorar
+            showError("No se pudo cerrar la sesion: " + e.getMessage());
         }
 
-        sessionToken = null;
-        currentUser = null;
+        if (response != null && !response.isSuccess()) {
+            showError(response.getDataString("message"));
+        }
+
+        resetAppState(true);
         showLoginView();
     }
 
     private void disconnect() {
+        resetAppState(false);
         if (serverListener != null) {
             serverListener.stop();
         }
@@ -621,6 +616,46 @@ public class MainApp extends Application {
         }
         if (connection != null) {
             connection.disconnect();
+        }
+    }
+
+    private Message sendRequest(Message request) throws IOException {
+        ensureConnected();
+        if (serverListener != null) {
+            serverListener.clearResponses();
+        }
+        connection.send(request);
+        Message response = serverListener != null ? serverListener.getNextResponse(10000) : null;
+        if (response == null) {
+            throw new IOException("Timeout esperando respuesta del servidor");
+        }
+        return response;
+    }
+
+    private void ensureConnected() throws IOException {
+        if (connection == null || !connection.isConnected() || serverListener == null || !serverListener.isRunning()) {
+            throw new IOException("La conexion con el servidor no esta disponible");
+        }
+    }
+
+    private void resetAppState(boolean keepConnection) {
+        sessionToken = null;
+        currentUser = null;
+
+        if (notificationPane != null) {
+            notificationPane.getChildren().setAll(notificationPane.getChildren().get(0));
+        }
+
+        if (mainPane != null) {
+            mainPane.setTop(null);
+            mainPane.setRight(null);
+        }
+
+        if (statusLabel != null) {
+            String status = keepConnection && connection != null && connection.isConnected()
+                ? "Conectado"
+                : "Desconectado";
+            statusLabel.setText(status);
         }
     }
 

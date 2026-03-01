@@ -68,6 +68,23 @@ public class ProtocolHandler {
         }
     }
 
+    public void handleClientDisconnect(ClientHandler clientHandler) {
+        if (clientHandler == null) {
+            return;
+        }
+
+        String username = clientHandler.getAuthenticatedUser();
+        if (username == null || username.isEmpty()) {
+            return;
+        }
+
+        sessionManager.invalidateUserSession(username);
+        if (notificationService != null) {
+            notificationService.unregisterClient(username);
+        }
+        clientHandler.setAuthenticatedUser(null);
+    }
+
     private Session validateToken(Message request) {
         String token = request.getToken();
         if (token == null || token.isEmpty()) {
