@@ -197,6 +197,20 @@ public class Message {
     }
 
     /**
+     * Obtiene un valor long de los datos.
+     *
+     * @param key clave del dato
+     * @param defaultValue valor por defecto si no existe
+     * @return valor del dato o defaultValue si no existe
+     */
+    public long getDataLong(String key, long defaultValue) {
+        if (data.has(key) && !data.get(key).isJsonNull()) {
+            return data.get(key).getAsLong();
+        }
+        return defaultValue;
+    }
+
+    /**
      * Obtiene un valor boolean de los datos.
      *
      * @param key clave del dato

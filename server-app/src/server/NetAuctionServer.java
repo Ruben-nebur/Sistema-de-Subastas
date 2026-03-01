@@ -4,6 +4,7 @@ import common.Constants;
 import server.manager.AuctionManager;
 import server.manager.SessionManager;
 import server.manager.UserManager;
+import server.model.Auction;
 import server.persistence.Database;
 import server.security.SSLConfig;
 import server.service.NotificationService;
@@ -12,8 +13,10 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -24,6 +27,7 @@ public class NetAuctionServer {
     private final int port;
     private ServerSocket serverSocket;
     private ExecutorService executorService;
+    private ScheduledExecutorService auctionMonitor;
     private ProtocolHandler protocolHandler;
     private UserManager userManager;
     private SessionManager sessionManager;
@@ -73,6 +77,8 @@ public class NetAuctionServer {
         protocolHandler.setNotificationService(notificationService);
 
         executorService = Executors.newFixedThreadPool(Constants.THREAD_POOL_SIZE);
+        auctionMonitor = Executors.newSingleThreadScheduledExecutor();
+        auctionMonitor.scheduleAtFixedRate(this::closeExpiredAuctionsSafely, 1, 1, TimeUnit.SECONDS);
 
         if (sslEnabled) {
             try {
@@ -108,6 +114,10 @@ public class NetAuctionServer {
         running = false;
         System.out.println("\n[SERVER] Iniciando apagado ordenado...");
 
+        if (auctionMonitor != null) {
+            auctionMonitor.shutdownNow();
+        }
+
         if (sessionManager != null) {
             sessionManager.shutdown();
         }
@@ -141,6 +151,31 @@ public class NetAuctionServer {
         }
 
         System.out.println("[SERVER] Servidor detenido correctamente.\n");
+    }
+
+    private void closeExpiredAuctionsSafely() {
+        if (!running || auctionManager == null) {
+            return;
+        }
+
+        try {
+            List<Auction> closedAuctions = auctionManager.closeExpiredAuctions();
+            if (notificationService == null) {
+                return;
+            }
+
+            for (Auction auction : closedAuctions) {
+                notificationService.notifyAuctionClosed(
+                    auction.getId(),
+                    auction.getTitle(),
+                    auction.getCurrentWinner(),
+                    auction.getCurrentPrice(),
+                    auction.getSeller()
+                );
+            }
+        } catch (Exception e) {
+            System.err.println("[SERVER] Error cerrando subastas expiradas: " + e.getMessage());
+        }
     }
 
     public static void main(String[] args) {

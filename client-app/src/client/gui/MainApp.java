@@ -5,6 +5,8 @@ import client.ServerListener;
 import common.Constants;
 import common.Message;
 
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -13,8 +15,14 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
+import javafx.util.Duration;
 
 import java.io.IOException;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -33,7 +41,11 @@ public class MainApp extends Application {
     private BorderPane mainPane;
     private Label statusLabel;
     private VBox notificationPane;
+    private Timeline countdownTimeline;
+    private String currentDetailAuctionId;
     private boolean sslEnabled = true;
+    private static final DateTimeFormatter BID_TIME_FORMATTER =
+        DateTimeFormatter.ofPattern("dd/MM HH:mm:ss").withZone(ZoneId.systemDefault());
 
     @Override
     public void start(Stage primaryStage) {
@@ -280,6 +292,7 @@ public class MainApp extends Application {
     }
 
     public void showDashboard() {
+        currentDetailAuctionId = null;
         HBox menuBar = new HBox(10);
         menuBar.setPadding(new Insets(10));
         menuBar.setStyle("-fx-background-color: #2c3e50;");
@@ -327,6 +340,7 @@ public class MainApp extends Application {
                 auctionList.getChildren().add(title);
 
                 var auctions = response.getData().getAsJsonArray("auctions");
+                List<CountdownTarget> countdownTargets = new ArrayList<>();
                 if (auctions != null && auctions.size() > 0) {
                     for (int i = 0; i < auctions.size(); i++) {
                         var auction = auctions.get(i).getAsJsonObject();
@@ -335,25 +349,32 @@ public class MainApp extends Application {
                             auction.get("title").getAsString(),
                             auction.get("currentPrice").getAsDouble(),
                             auction.get("remainingTime").getAsString(),
+                            auction.get("remainingSeconds").getAsLong(),
                             auction.get("bidCount").getAsInt(),
-                            auction.get("seller").getAsString()
+                            auction.get("seller").getAsString(),
+                            countdownTargets
                         );
                         auctionList.getChildren().add(auctionCard);
                     }
                 } else {
+                    stopCountdown();
                     auctionList.getChildren().add(new Label("No hay subastas activas"));
                 }
 
                 ScrollPane scrollPane = new ScrollPane(auctionList);
                 scrollPane.setFitToWidth(true);
                 mainPane.setCenter(scrollPane);
+                startCountdown(countdownTargets, this::refreshAuctionList);
+            } else if (response != null) {
+                showError(response.getDataString("message"));
             }
         } catch (IOException e) {
             showError("Error actualizando lista: " + e.getMessage());
         }
     }
 
-    private HBox createAuctionCard(String id, String title, double price, String time, int bids, String seller) {
+    private HBox createAuctionCard(String id, String title, double price, String time, long remainingSeconds,
+                                   int bids, String seller, List<CountdownTarget> countdownTargets) {
         HBox card = new HBox(15);
         card.setPadding(new Insets(15));
         card.setStyle("-fx-background-color: white; -fx-border-color: #bdc3c7; -fx-border-radius: 5;");
@@ -377,6 +398,7 @@ public class MainApp extends Application {
         Label timeLabel = new Label(time);
         timeLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: #e74c3c;");
         timeBox.getChildren().add(timeLabel);
+        countdownTargets.add(new CountdownTarget(timeLabel, remainingSeconds));
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -384,6 +406,7 @@ public class MainApp extends Application {
         Button viewBtn = new Button("Ver / Pujar");
         viewBtn.setStyle("-fx-background-color: #3498db; -fx-text-fill: white;");
         viewBtn.setOnAction(e -> showAuctionDetail(id));
+        card.setOnMouseClicked(e -> showAuctionDetail(id));
 
         card.getChildren().addAll(info, spacer, priceBox, timeBox, viewBtn);
         return card;
@@ -397,11 +420,15 @@ public class MainApp extends Application {
             Message response = sendRequest(request);
 
             if (response != null && response.isSuccess()) {
+                currentDetailAuctionId = auctionId;
                 VBox detailBox = new VBox(15);
                 detailBox.setPadding(new Insets(20));
 
                 Button backBtn = new Button("<- Volver");
-                backBtn.setOnAction(e -> refreshAuctionList());
+                backBtn.setOnAction(e -> {
+                    currentDetailAuctionId = null;
+                    refreshAuctionList();
+                });
 
                 Label title = new Label(response.getDataString("title"));
                 title.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
@@ -427,6 +454,39 @@ public class MainApp extends Application {
                 Label timeLabel = new Label(response.getDataString("remainingTime"));
                 timeLabel.setStyle("-fx-text-fill: #e74c3c;");
                 infoGrid.add(timeLabel, 1, 4);
+                infoGrid.add(new Label("Estado:"), 0, 5);
+                infoGrid.add(new Label(response.getDataString("status")), 1, 5);
+                infoGrid.add(new Label("Numero de pujas:"), 0, 6);
+                infoGrid.add(new Label(String.valueOf(response.getDataInt("bidCount", 0))), 1, 6);
+
+                VBox bidHistoryBox = new VBox(8);
+                Label historyTitle = new Label("Historial de pujas");
+                historyTitle.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
+                bidHistoryBox.getChildren().add(historyTitle);
+
+                var recentBids = response.getData().getAsJsonArray("recentBids");
+                if (recentBids != null && recentBids.size() > 0) {
+                    for (int i = 0; i < recentBids.size(); i++) {
+                        var bid = recentBids.get(i).getAsJsonObject();
+                        HBox bidRow = new HBox(10);
+                        bidRow.setAlignment(Pos.CENTER_LEFT);
+                        bidRow.setPadding(new Insets(8));
+                        bidRow.setStyle("-fx-background-color: #f8f9fa; -fx-border-color: #dfe6e9;");
+
+                        Label bidderLabel = new Label(bid.get("bidder").getAsString());
+                        bidderLabel.setStyle("-fx-font-weight: bold;");
+                        Label amountLabel = new Label(String.format("%.2f EUR", bid.get("amount").getAsDouble()));
+                        Label dateLabel = new Label(formatBidTimestamp(bid.get("timestamp").getAsLong()));
+                        dateLabel.setStyle("-fx-text-fill: #636e72;");
+
+                        Region bidSpacer = new Region();
+                        HBox.setHgrow(bidSpacer, Priority.ALWAYS);
+                        bidRow.getChildren().addAll(bidderLabel, bidSpacer, amountLabel, dateLabel);
+                        bidHistoryBox.getChildren().add(bidRow);
+                    }
+                } else {
+                    bidHistoryBox.getChildren().add(new Label("Todavia no hay pujas registradas."));
+                }
 
                 HBox bidBox = new HBox(10);
                 bidBox.setAlignment(Pos.CENTER_LEFT);
@@ -448,8 +508,6 @@ public class MainApp extends Application {
                         Message bidResponse = sendRequest(bidRequest);
 
                         if (bidResponse != null && bidResponse.isSuccess()) {
-                            bidStatus.setText("Puja realizada");
-                            bidStatus.setStyle("-fx-text-fill: green;");
                             showAuctionDetail(aId);
                         } else {
                             bidStatus.setText(bidResponse != null ? bidResponse.getDataString("message") : "Error");
@@ -466,11 +524,20 @@ public class MainApp extends Application {
 
                 bidBox.getChildren().addAll(new Label("Tu puja:"), bidField, new Label("EUR"), bidBtn, bidStatus);
 
-                detailBox.getChildren().addAll(backBtn, title, desc, new Separator(), infoGrid, new Separator(), bidBox);
+                startCountdown(List.of(new CountdownTarget(timeLabel, response.getDataLong("remainingSeconds", 0))),
+                    () -> {
+                        currentDetailAuctionId = null;
+                        refreshAuctionList();
+                    });
+
+                detailBox.getChildren().addAll(backBtn, title, desc, new Separator(), infoGrid,
+                    new Separator(), bidHistoryBox, new Separator(), bidBox);
 
                 ScrollPane scrollPane = new ScrollPane(detailBox);
                 scrollPane.setFitToWidth(true);
                 mainPane.setCenter(scrollPane);
+            } else if (response != null) {
+                showError(response.getDataString("message"));
             }
         } catch (IOException e) {
             showError("Error cargando detalle: " + e.getMessage());
@@ -641,6 +708,8 @@ public class MainApp extends Application {
     private void resetAppState(boolean keepConnection) {
         sessionToken = null;
         currentUser = null;
+        currentDetailAuctionId = null;
+        stopCountdown();
 
         if (notificationPane != null) {
             notificationPane.getChildren().setAll(notificationPane.getChildren().get(0));
@@ -675,6 +744,69 @@ public class MainApp extends Application {
             alert.setContentText(message);
             alert.showAndWait();
         });
+    }
+
+    private void startCountdown(List<CountdownTarget> targets, Runnable onExpire) {
+        stopCountdown();
+
+        if (targets == null || targets.isEmpty()) {
+            return;
+        }
+
+        countdownTimeline = new Timeline(new KeyFrame(Duration.seconds(1), event -> {
+            boolean expired = false;
+            for (CountdownTarget target : targets) {
+                if (target.remainingSeconds > 0) {
+                    target.remainingSeconds--;
+                }
+
+                target.label.setText(formatRemainingTime(target.remainingSeconds));
+                if (target.remainingSeconds == 0) {
+                    expired = true;
+                }
+            }
+
+            if (expired) {
+                stopCountdown();
+                onExpire.run();
+            }
+        }));
+        countdownTimeline.setCycleCount(Timeline.INDEFINITE);
+        countdownTimeline.play();
+    }
+
+    private void stopCountdown() {
+        if (countdownTimeline != null) {
+            countdownTimeline.stop();
+            countdownTimeline = null;
+        }
+    }
+
+    private String formatRemainingTime(long remainingSeconds) {
+        if (remainingSeconds <= 0) {
+            return "Finalizada";
+        }
+
+        long minutes = remainingSeconds / 60;
+        long seconds = remainingSeconds % 60;
+        if (minutes > 0) {
+            return minutes + "m " + seconds + "s";
+        }
+        return seconds + "s";
+    }
+
+    private String formatBidTimestamp(long timestamp) {
+        return BID_TIME_FORMATTER.format(Instant.ofEpochMilli(timestamp));
+    }
+
+    private static class CountdownTarget {
+        private final Label label;
+        private long remainingSeconds;
+
+        private CountdownTarget(Label label, long remainingSeconds) {
+            this.label = label;
+            this.remainingSeconds = Math.max(0, remainingSeconds);
+        }
     }
 
     public static void main(String[] args) {

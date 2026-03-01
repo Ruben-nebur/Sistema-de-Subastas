@@ -284,6 +284,21 @@ public class AuctionManager {
     }
 
     /**
+     * Cierra todas las subastas expiradas que sigan activas.
+     *
+     * @return lista de subastas que se acaban de cerrar
+     */
+    public List<Auction> closeExpiredAuctions() {
+        List<Auction> closedAuctions = new ArrayList<>();
+        for (Auction auction : getExpiredAuctions()) {
+            if (closeAuction(auction.getId())) {
+                closedAuctions.add(getAuction(auction.getId()));
+            }
+        }
+        return closedAuctions;
+    }
+
+    /**
      * Cancela una subasta (solo ADMIN).
      *
      * @param auctionId ID de la subasta
