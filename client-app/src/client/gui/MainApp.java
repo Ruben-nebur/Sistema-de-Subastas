@@ -455,7 +455,7 @@ public class MainApp extends Application {
                 timeLabel.setStyle("-fx-text-fill: #e74c3c;");
                 infoGrid.add(timeLabel, 1, 4);
                 infoGrid.add(new Label("Estado:"), 0, 5);
-                infoGrid.add(new Label(response.getDataString("status")), 1, 5);
+                infoGrid.add(new Label(response.getDataString("auctionStatus")), 1, 5);
                 infoGrid.add(new Label("Numero de pujas:"), 0, 6);
                 infoGrid.add(new Label(String.valueOf(response.getDataInt("bidCount", 0))), 1, 6);
 

@@ -231,7 +231,7 @@ public class ProtocolHandler {
         response.addData("endTime", auction.getEndTime());
         response.addData("remainingTime", auction.getRemainingTimeFormatted());
         response.addData("remainingSeconds", auction.getRemainingSeconds());
-        response.addData("status", auction.getStatus());
+        response.addData("auctionStatus", auction.getStatus());
         response.addData("bidCount", auction.getBidCount());
 
         JsonArray bidsArray = new JsonArray();
