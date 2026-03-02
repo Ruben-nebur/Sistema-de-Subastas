@@ -5,12 +5,25 @@ import server.persistence.Database;
 
 /**
  * Inicializa la base de datos y crea el usuario por defecto si no existe.
+ * Utilidad de linea de comandos para preparar la base de datos antes de iniciar el servidor.
+ *
+ * @author NetAuction Team
+ * @version 1.0
  */
 public final class DatabaseInit {
 
+    /**
+     * Constructor privado para evitar instanciacion.
+     */
     private DatabaseInit() {
     }
 
+    /**
+     * Punto de entrada principal.
+     * Inicializa la base de datos SQLite y carga/crea los usuarios necesarios.
+     *
+     * @param args argumentos de linea de comandos (no utilizados)
+     */
     public static void main(String[] args) {
         Database database = null;
         try {

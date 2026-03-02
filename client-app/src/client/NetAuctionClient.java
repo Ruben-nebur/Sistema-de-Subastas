@@ -13,27 +13,59 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Cliente de consola para NetAuction.
+ * Permite al usuario interactuar con el servidor de subastas mediante
+ * comandos de texto introducidos por la terminal.
+ *
+ * @author NetAuction Team
+ * @version 1.0
  */
 public class NetAuctionClient {
 
+    /** Conexion con el servidor */
     private ServerConnection connection;
+
+    /** Listener de mensajes del servidor */
     private ServerListener serverListener;
+
+    /** Executor para el hilo del listener */
     private ExecutorService listenerExecutor;
+
+    /** Token de sesion del usuario autenticado */
     private String sessionToken;
+
+    /** Nombre del usuario autenticado */
     private String currentUser;
+
+    /** Reader de la consola para entrada del usuario */
     private BufferedReader consoleReader;
+
+    /** Indica si el cliente esta en ejecucion */
     private volatile boolean running;
 
+    /**
+     * Constructor con SSL habilitado por defecto.
+     */
     public NetAuctionClient() {
         this(true);
     }
 
+    /**
+     * Constructor con configuracion de SSL.
+     *
+     * @param sslEnabled true para habilitar SSL/TLS
+     */
     public NetAuctionClient(boolean sslEnabled) {
         this.connection = new ServerConnection(sslEnabled);
         this.consoleReader = new BufferedReader(new InputStreamReader(System.in));
         this.running = true;
     }
 
+    /**
+     * Inicia el cliente conectandose al servidor y procesando comandos del usuario.
+     *
+     * @param host host del servidor
+     * @param port puerto del servidor
+     */
     public void start(String host, int port) {
         try {
             System.out.println("[CLIENT] Conectando a " + host + ":" + port + "...");
@@ -65,6 +97,11 @@ public class NetAuctionClient {
         }
     }
 
+    /**
+     * Procesa un comando introducido por el usuario y lo enruta al manejador correspondiente.
+     *
+     * @param input linea de texto introducida por el usuario
+     */
     private void processCommand(String input) {
         String[] parts = input.split("\\s+", 2);
         String command = parts[0].toLowerCase();
@@ -126,6 +163,9 @@ public class NetAuctionClient {
         }
     }
 
+    /**
+     * Muestra la ayuda con los comandos disponibles.
+     */
     private void printHelp() {
         System.out.println("COMANDOS DISPONIBLES");
         System.out.println("  register <user> <email>      (pedira la contrasena de forma oculta)");
@@ -145,6 +185,9 @@ public class NetAuctionClient {
         System.out.println("  exit");
     }
 
+    /**
+     * Muestra el estado actual de la conexion y sesion.
+     */
     private void printStatus() {
         if (sessionToken != null) {
             System.out.println("Usuario: " + currentUser);
@@ -155,6 +198,12 @@ public class NetAuctionClient {
         }
     }
 
+    /**
+     * Maneja el comando de registro de usuario.
+     *
+     * @param args argumentos del comando (user email)
+     * @throws IOException si ocurre un error de comunicacion
+     */
     private void handleRegister(String args) throws IOException {
         String[] parts = args.split("\\s+");
         if (parts.length < 2) {
@@ -176,6 +225,12 @@ public class NetAuctionClient {
         sendAndReceive(request);
     }
 
+    /**
+     * Maneja el comando de inicio de sesion.
+     *
+     * @param args argumentos del comando (user [password])
+     * @throws IOException si ocurre un error de comunicacion
+     */
     private void handleLogin(String args) throws IOException {
         String[] parts = args.split("\\s+");
         if (parts.length < 1 || parts[0].isEmpty()) {
@@ -202,6 +257,11 @@ public class NetAuctionClient {
         }
     }
 
+    /**
+     * Maneja el comando de cierre de sesion.
+     *
+     * @throws IOException si ocurre un error de comunicacion
+     */
     private void handleLogout() throws IOException {
         if (sessionToken == null) {
             System.out.println("[CLIENT] No hay sesion activa");
@@ -217,6 +277,12 @@ public class NetAuctionClient {
         currentUser = null;
     }
 
+    /**
+     * Maneja el comando de creacion de subasta.
+     *
+     * @param args argumentos del comando (titulo precio minutos [descripcion])
+     * @throws IOException si ocurre un error de comunicacion
+     */
     private void handleCreateAuction(String args) throws IOException {
         if (sessionToken == null) {
             System.out.println("[CLIENT] Debe iniciar sesion primero");
@@ -243,6 +309,11 @@ public class NetAuctionClient {
         }
     }
 
+    /**
+     * Maneja el comando de listado de subastas activas.
+     *
+     * @throws IOException si ocurre un error de comunicacion
+     */
     private void handleListAuctions() throws IOException {
         if (sessionToken == null) {
             System.out.println("[CLIENT] Debe iniciar sesion primero");
@@ -270,6 +341,12 @@ public class NetAuctionClient {
         }
     }
 
+    /**
+     * Maneja el comando de detalle de una subasta.
+     *
+     * @param args argumentos del comando (auctionId)
+     * @throws IOException si ocurre un error de comunicacion
+     */
     private void handleAuctionDetail(String args) throws IOException {
         if (sessionToken == null) {
             System.out.println("[CLIENT] Debe iniciar sesion primero");
@@ -298,6 +375,12 @@ public class NetAuctionClient {
         }
     }
 
+    /**
+     * Maneja el comando de puja en una subasta.
+     *
+     * @param args argumentos del comando (auctionId cantidad)
+     * @throws IOException si ocurre un error de comunicacion
+     */
     private void handleBid(String args) throws IOException {
         if (sessionToken == null) {
             System.out.println("[CLIENT] Debe iniciar sesion primero");
@@ -322,6 +405,12 @@ public class NetAuctionClient {
         }
     }
 
+    /**
+     * Maneja el comando de cancelacion de subasta.
+     *
+     * @param args argumentos del comando (auctionId)
+     * @throws IOException si ocurre un error de comunicacion
+     */
     private void handleCancelAuction(String args) throws IOException {
         if (sessionToken == null) {
             System.out.println("[CLIENT] Debe iniciar sesion primero");
@@ -340,6 +429,12 @@ public class NetAuctionClient {
         sendAndReceive(request);
     }
 
+    /**
+     * Maneja el comando de bloqueo de usuario.
+     *
+     * @param args argumentos del comando (username)
+     * @throws IOException si ocurre un error de comunicacion
+     */
     private void handleBlockUser(String args) throws IOException {
         if (sessionToken == null) {
             System.out.println("[CLIENT] Debe iniciar sesion primero");
@@ -359,6 +454,12 @@ public class NetAuctionClient {
         sendAndReceive(request);
     }
 
+    /**
+     * Maneja el comando de desbloqueo de usuario.
+     *
+     * @param args argumentos del comando (username)
+     * @throws IOException si ocurre un error de comunicacion
+     */
     private void handleUnblockUser(String args) throws IOException {
         if (sessionToken == null) {
             System.out.println("[CLIENT] Debe iniciar sesion primero");
@@ -378,6 +479,12 @@ public class NetAuctionClient {
         sendAndReceive(request);
     }
 
+    /**
+     * Maneja el comando de envio de mensaje JSON en crudo.
+     *
+     * @param json cadena JSON del mensaje a enviar
+     * @throws IOException si ocurre un error de comunicacion
+     */
     private void handleRawMessage(String json) throws IOException {
         if (json.isEmpty()) {
             System.out.println("[CLIENT] Uso: raw <json>");
@@ -395,6 +502,13 @@ public class NetAuctionClient {
         }
     }
 
+    /**
+     * Envia un mensaje al servidor y espera la respuesta.
+     *
+     * @param request mensaje a enviar
+     * @return mensaje de respuesta del servidor o null si hay timeout
+     * @throws IOException si ocurre un error de comunicacion
+     */
     private Message sendAndReceive(Message request) throws IOException {
         System.out.println("[CLIENT] Enviando: " + request.getAction());
 
@@ -411,6 +525,11 @@ public class NetAuctionClient {
         return response;
     }
 
+    /**
+     * Imprime la respuesta del servidor formateada.
+     *
+     * @param response mensaje de respuesta a imprimir
+     */
     private void printFormattedResponse(Message response) {
         String status = response.getDataString("status");
         String message = response.getDataString("message");
@@ -422,12 +541,27 @@ public class NetAuctionClient {
         }
     }
 
+    /**
+     * Trunca una cadena a la longitud maxima especificada.
+     *
+     * @param str cadena a truncar
+     * @param maxLen longitud maxima
+     * @return cadena truncada con "..." si excede la longitud
+     */
     private String truncate(String str, int maxLen) {
         if (str == null) return "";
         if (str.length() <= maxLen) return str;
         return str.substring(0, maxLen - 3) + "...";
     }
 
+    /**
+     * Lee una contrasena de forma segura desde la consola.
+     * Usa Console.readPassword si esta disponible para ocultar la entrada.
+     *
+     * @param prompt texto a mostrar al usuario
+     * @return contrasena introducida o null
+     * @throws IOException si ocurre un error de lectura
+     */
     private String readSecret(String prompt) throws IOException {
         Console console = System.console();
         if (console != null) {
@@ -439,6 +573,9 @@ public class NetAuctionClient {
         return consoleReader.readLine();
     }
 
+    /**
+     * Desconecta el cliente del servidor liberando todos los recursos.
+     */
     private void disconnect() {
         if (serverListener != null) {
             serverListener.stop();
@@ -461,6 +598,12 @@ public class NetAuctionClient {
         }
     }
 
+    /**
+     * Punto de entrada principal del cliente de consola.
+     * Parsea los argumentos de linea de comandos y arranca el cliente.
+     *
+     * @param args argumentos de linea de comandos (host, puerto, --ssl)
+     */
     public static void main(String[] args) {
         String host = Constants.SERVER_HOST;
         int port = Constants.SERVER_PORT;
@@ -484,4 +627,3 @@ public class NetAuctionClient {
         client.start(host, port);
     }
 }
-

@@ -116,6 +116,11 @@ public class Bid {
         this.timestamp = timestamp;
     }
 
+    /**
+     * Representacion en texto del objeto Bid.
+     *
+     * @return cadena con los datos principales de la puja
+     */
     @Override
     public String toString() {
         return "Bid{" +

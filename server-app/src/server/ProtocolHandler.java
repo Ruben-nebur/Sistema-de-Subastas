@@ -17,15 +17,34 @@ import com.google.gson.JsonObject;
 import java.util.List;
 
 /**
- * Procesador de protocolo simplificado.
+ * Procesador del protocolo de comunicacion de NetAuction.
+ * Recibe mensajes del cliente, los interpreta segun la accion solicitada
+ * y delega en los gestores correspondientes para generar la respuesta.
+ *
+ * @author NetAuction Team
+ * @version 1.0
  */
 public class ProtocolHandler {
 
+    /** Gestor de usuarios */
     private final UserManager userManager;
+
+    /** Gestor de sesiones */
     private final SessionManager sessionManager;
+
+    /** Gestor de subastas */
     private final AuctionManager auctionManager;
+
+    /** Servicio de notificaciones push */
     private NotificationService notificationService;
 
+    /**
+     * Constructor del procesador de protocolo.
+     *
+     * @param userManager gestor de usuarios
+     * @param sessionManager gestor de sesiones
+     * @param auctionManager gestor de subastas
+     */
     public ProtocolHandler(UserManager userManager, SessionManager sessionManager,
                            AuctionManager auctionManager) {
         this.userManager = userManager;
@@ -33,10 +52,23 @@ public class ProtocolHandler {
         this.auctionManager = auctionManager;
     }
 
+    /**
+     * Establece el servicio de notificaciones push.
+     *
+     * @param notificationService servicio de notificaciones
+     */
     public void setNotificationService(NotificationService notificationService) {
         this.notificationService = notificationService;
     }
 
+    /**
+     * Procesa un mensaje entrante y devuelve la respuesta correspondiente.
+     * Enruta la peticion al manejador adecuado segun la accion del mensaje.
+     *
+     * @param request mensaje de peticion del cliente
+     * @param clientHandler manejador del cliente que envio la peticion
+     * @return mensaje de respuesta
+     */
     public Message handleMessage(Message request, ClientHandler clientHandler) {
         String action = request.getAction();
 
@@ -68,6 +100,12 @@ public class ProtocolHandler {
         }
     }
 
+    /**
+     * Maneja la desconexion de un cliente.
+     * Invalida su sesion y lo desregistra del servicio de notificaciones.
+     *
+     * @param clientHandler manejador del cliente desconectado
+     */
     public void handleClientDisconnect(ClientHandler clientHandler) {
         if (clientHandler == null) {
             return;
@@ -85,6 +123,12 @@ public class ProtocolHandler {
         clientHandler.setAuthenticatedUser(null);
     }
 
+    /**
+     * Valida el token de sesion contenido en un mensaje.
+     *
+     * @param request mensaje que contiene el token
+     * @return sesion valida o null si el token es invalido
+     */
     private Session validateToken(Message request) {
         String token = request.getToken();
         if (token == null || token.isEmpty()) {
@@ -93,6 +137,12 @@ public class ProtocolHandler {
         return sessionManager.validateSession(token);
     }
 
+    /**
+     * Maneja una peticion de registro de usuario.
+     *
+     * @param request mensaje con los datos de registro (user, password, email)
+     * @return mensaje de respuesta indicando exito o error
+     */
     private Message handleRegister(Message request) {
         String username = request.getDataString("user");
         String password = request.getDataString("password");
@@ -106,6 +156,14 @@ public class ProtocolHandler {
         return Message.createErrorResponse(Constants.ACTION_REGISTER, result.getMessage());
     }
 
+    /**
+     * Maneja una peticion de inicio de sesion.
+     * Si la autenticacion es exitosa, crea una sesion y registra al cliente para notificaciones.
+     *
+     * @param request mensaje con las credenciales (user, password)
+     * @param clientHandler manejador del cliente que inicia sesion
+     * @return mensaje de respuesta con token si es exitoso, o error
+     */
     private Message handleLogin(Message request, ClientHandler clientHandler) {
         String username = request.getDataString("user");
         String password = request.getDataString("password");
@@ -131,6 +189,14 @@ public class ProtocolHandler {
         return Message.createErrorResponse(Constants.ACTION_LOGIN, result.getMessage());
     }
 
+    /**
+     * Maneja una peticion de cierre de sesion.
+     * Invalida la sesion y desregistra al cliente de las notificaciones.
+     *
+     * @param request mensaje con el token de sesion
+     * @param clientHandler manejador del cliente que cierra sesion
+     * @return mensaje de respuesta indicando exito o error
+     */
     private Message handleLogout(Message request, ClientHandler clientHandler) {
         Session session = validateToken(request);
         if (session == null) {
@@ -150,6 +216,12 @@ public class ProtocolHandler {
         return Message.createSuccessResponse(Constants.ACTION_LOGOUT, "Sesion cerrada correctamente");
     }
 
+    /**
+     * Maneja una peticion de creacion de subasta.
+     *
+     * @param request mensaje con los datos de la subasta (title, description, startPrice, durationMinutes)
+     * @return mensaje de respuesta con el ID de la subasta creada o error
+     */
     private Message handleCreateAuction(Message request) {
         Session session = validateToken(request);
         if (session == null) {
@@ -175,6 +247,12 @@ public class ProtocolHandler {
         return Message.createErrorResponse(Constants.ACTION_CREATE_AUCTION, result.getMessage());
     }
 
+    /**
+     * Maneja una peticion de listado de subastas activas.
+     *
+     * @param request mensaje con el token de sesion
+     * @return mensaje de respuesta con el array de subastas activas o error
+     */
     private Message handleListAuctions(Message request) {
         Session session = validateToken(request);
         if (session == null) {
@@ -203,6 +281,13 @@ public class ProtocolHandler {
         return response;
     }
 
+    /**
+     * Maneja una peticion de detalle de una subasta especifica.
+     * Incluye informacion completa y las ultimas 10 pujas.
+     *
+     * @param request mensaje con el ID de la subasta (auctionId)
+     * @return mensaje de respuesta con el detalle de la subasta o error
+     */
     private Message handleAuctionDetail(Message request) {
         Session session = validateToken(request);
         if (session == null) {
@@ -249,6 +334,14 @@ public class ProtocolHandler {
         return response;
     }
 
+    /**
+     * Maneja una peticion de puja en una subasta.
+     * Notifica a los participantes sobre la nueva puja y al pujador anterior si fue superado.
+     *
+     * @param request mensaje con el ID de la subasta y la cantidad (auctionId, amount)
+     * @param clientHandler manejador del cliente que realiza la puja
+     * @return mensaje de respuesta indicando exito o error
+     */
     private Message handleBid(Message request, ClientHandler clientHandler) {
         Session session = validateToken(request);
         if (session == null) {
@@ -286,6 +379,12 @@ public class ProtocolHandler {
         return Message.createErrorResponse(Constants.ACTION_BID, result.getMessage());
     }
 
+    /**
+     * Maneja una peticion de cancelacion de subasta.
+     *
+     * @param request mensaje con el ID de la subasta (auctionId)
+     * @return mensaje de respuesta indicando exito o error
+     */
     private Message handleCancelAuction(Message request) {
         Session session = validateToken(request);
         if (session == null) {
@@ -305,6 +404,13 @@ public class ProtocolHandler {
         return Message.createErrorResponse(Constants.ACTION_CANCEL_AUCTION, result.getMessage());
     }
 
+    /**
+     * Maneja una peticion de bloqueo o desbloqueo de usuario.
+     * Si se bloquea, invalida su sesion y lo desregistra de las notificaciones.
+     *
+     * @param request mensaje con el username y estado de bloqueo (username, blocked)
+     * @return mensaje de respuesta indicando exito o error
+     */
     private Message handleBlockUser(Message request) {
         Session session = validateToken(request);
         if (session == null) {
@@ -339,4 +445,3 @@ public class ProtocolHandler {
         return Message.createErrorResponse(Constants.ACTION_BLOCK_USER, "Usuario no encontrado");
     }
 }
-

@@ -21,32 +21,77 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Servidor principal de NetAuction.
+ * Gestiona el ciclo de vida del servidor, incluyendo la inicializacion de componentes,
+ * aceptacion de conexiones de clientes y cierre ordenado del sistema.
+ *
+ * @author NetAuction Team
+ * @version 1.0
  */
 public class NetAuctionServer {
 
+    /** Puerto en el que escucha el servidor */
     private final int port;
+
+    /** Socket del servidor para aceptar conexiones */
     private ServerSocket serverSocket;
+
+    /** Pool de hilos para manejar clientes concurrentes */
     private ExecutorService executorService;
+
+    /** Planificador para monitorizar subastas expiradas */
     private ScheduledExecutorService auctionMonitor;
+
+    /** Manejador del protocolo de comunicacion */
     private ProtocolHandler protocolHandler;
+
+    /** Gestor de usuarios */
     private UserManager userManager;
+
+    /** Gestor de sesiones */
     private SessionManager sessionManager;
+
+    /** Gestor de subastas */
     private AuctionManager auctionManager;
+
+    /** Servicio de notificaciones push */
     private NotificationService notificationService;
+
+    /** Conexion a la base de datos */
     private Database database;
+
+    /** Indica si el servidor esta en ejecucion */
     private volatile boolean running;
+
+    /** Indica si SSL/TLS esta habilitado */
     private boolean sslEnabled;
 
+    /**
+     * Constructor con puerto por defecto y SSL habilitado.
+     *
+     * @param port puerto en el que escuchara el servidor
+     */
     public NetAuctionServer(int port) {
         this(port, true);
     }
 
+    /**
+     * Constructor completo.
+     *
+     * @param port puerto en el que escuchara el servidor
+     * @param sslEnabled true para habilitar SSL/TLS
+     */
     public NetAuctionServer(int port, boolean sslEnabled) {
         this.port = port;
         this.running = false;
         this.sslEnabled = sslEnabled;
     }
 
+    /**
+     * Inicializa todos los componentes y arranca el servidor.
+     * Configura la base de datos, gestores, pool de hilos y comienza a aceptar conexiones.
+     *
+     * @throws IOException si ocurre un error al crear el socket del servidor
+     */
     public void start() throws IOException {
         System.out.println("\n[SERVER] Inicializando componentes...");
 
@@ -110,6 +155,10 @@ public class NetAuctionServer {
         }
     }
 
+    /**
+     * Detiene el servidor de forma ordenada.
+     * Cierra el monitor de subastas, sesiones, notificaciones, socket y pool de hilos.
+     */
     public void stop() {
         running = false;
         System.out.println("\n[SERVER] Iniciando apagado ordenado...");
@@ -153,6 +202,10 @@ public class NetAuctionServer {
         System.out.println("[SERVER] Servidor detenido correctamente.\n");
     }
 
+    /**
+     * Cierra las subastas expiradas de forma segura y notifica a los participantes.
+     * Este metodo es invocado periodicamente por el planificador.
+     */
     private void closeExpiredAuctionsSafely() {
         if (!running || auctionManager == null) {
             return;
@@ -178,6 +231,12 @@ public class NetAuctionServer {
         }
     }
 
+    /**
+     * Punto de entrada principal del servidor.
+     * Parsea los argumentos de linea de comandos y arranca el servidor.
+     *
+     * @param args argumentos de linea de comandos (puerto y --ssl)
+     */
     public static void main(String[] args) {
         int port = Constants.SERVER_PORT;
         boolean ssl = true;
@@ -210,4 +269,3 @@ public class NetAuctionServer {
         }
     }
 }
-

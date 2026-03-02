@@ -29,24 +29,59 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Aplicacion principal JavaFX para NetAuction.
+ * Proporciona una interfaz grafica para conectarse al servidor, autenticarse,
+ * listar subastas, pujar y recibir notificaciones en tiempo real.
+ *
+ * @author NetAuction Team
+ * @version 1.0
  */
 public class MainApp extends Application {
 
+    /** Conexion con el servidor */
     private ServerConnection connection;
+
+    /** Listener de mensajes del servidor */
     private ServerListener serverListener;
+
+    /** Executor para el hilo del listener */
     private ExecutorService listenerExecutor;
+
+    /** Token de sesion del usuario autenticado */
     private String sessionToken;
+
+    /** Nombre del usuario autenticado */
     private String currentUser;
+
+    /** Ventana principal de la aplicacion */
     private Stage primaryStage;
+
+    /** Panel principal de la aplicacion */
     private BorderPane mainPane;
+
+    /** Etiqueta de estado en la barra inferior */
     private Label statusLabel;
+
+    /** Panel lateral de notificaciones */
     private VBox notificationPane;
+
+    /** Timeline para la cuenta regresiva de subastas */
     private Timeline countdownTimeline;
+
+    /** ID de la subasta actualmente mostrada en detalle */
     private String currentDetailAuctionId;
+
+    /** Indica si SSL/TLS esta habilitado */
     private boolean sslEnabled = true;
+
+    /** Formateador de timestamps para las pujas */
     private static final DateTimeFormatter BID_TIME_FORMATTER =
         DateTimeFormatter.ofPattern("dd/MM HH:mm:ss").withZone(ZoneId.systemDefault());
 
+    /**
+     * Inicializa y muestra la interfaz grafica principal.
+     *
+     * @param primaryStage ventana principal proporcionada por JavaFX
+     */
     @Override
     public void start(Stage primaryStage) {
         this.primaryStage = primaryStage;
@@ -78,6 +113,9 @@ public class MainApp extends Application {
         primaryStage.show();
     }
 
+    /**
+     * Muestra la vista de conexion al servidor con campos de host y puerto.
+     */
     private void showConnectionView() {
         resetAppState(false);
         VBox connectBox = new VBox(15);
@@ -129,6 +167,13 @@ public class MainApp extends Application {
         mainPane.setCenter(centerPane);
     }
 
+    /**
+     * Establece la conexion con el servidor e inicia el listener de mensajes.
+     *
+     * @param host host del servidor
+     * @param port puerto del servidor
+     * @throws IOException si ocurre un error de conexion
+     */
     private void connectToServer(String host, int port) throws IOException {
         connection = new ServerConnection(sslEnabled);
         connection.connect(host, port);
@@ -142,6 +187,9 @@ public class MainApp extends Application {
             (sslEnabled ? " (SSL)" : "")));
     }
 
+    /**
+     * Muestra la vista de inicio de sesion.
+     */
     public void showLoginView() {
         resetAppState(connection != null && connection.isConnected());
         VBox loginBox = new VBox(15);
@@ -208,6 +256,9 @@ public class MainApp extends Application {
         mainPane.setRight(null);
     }
 
+    /**
+     * Muestra la vista de registro de nuevo usuario.
+     */
     public void showRegisterView() {
         VBox registerBox = new VBox(15);
         registerBox.setAlignment(Pos.CENTER);
@@ -291,6 +342,9 @@ public class MainApp extends Application {
         mainPane.setCenter(centerPane);
     }
 
+    /**
+     * Muestra el panel principal (dashboard) con la lista de subastas y la barra de navegacion.
+     */
     public void showDashboard() {
         currentDetailAuctionId = null;
         HBox menuBar = new HBox(10);
@@ -325,6 +379,9 @@ public class MainApp extends Application {
         Platform.runLater(() -> statusLabel.setText("Conectado como " + currentUser));
     }
 
+    /**
+     * Actualiza la lista de subastas activas solicitando los datos al servidor.
+     */
     private void refreshAuctionList() {
         try {
             Message request = new Message(Constants.ACTION_LIST_AUCTIONS);
@@ -373,6 +430,19 @@ public class MainApp extends Application {
         }
     }
 
+    /**
+     * Crea una tarjeta visual para una subasta en la lista.
+     *
+     * @param id ID de la subasta
+     * @param title titulo de la subasta
+     * @param price precio actual
+     * @param time tiempo restante formateado
+     * @param remainingSeconds segundos restantes para la cuenta regresiva
+     * @param bids numero de pujas
+     * @param seller nombre del vendedor
+     * @param countdownTargets lista de objetivos de cuenta regresiva a la que se anade esta tarjeta
+     * @return componente HBox con la tarjeta de la subasta
+     */
     private HBox createAuctionCard(String id, String title, double price, String time, long remainingSeconds,
                                    int bids, String seller, List<CountdownTarget> countdownTargets) {
         HBox card = new HBox(15);
@@ -412,6 +482,12 @@ public class MainApp extends Application {
         return card;
     }
 
+    /**
+     * Muestra la vista de detalle de una subasta con informacion completa,
+     * historial de pujas y formulario para pujar.
+     *
+     * @param auctionId ID de la subasta a mostrar
+     */
     private void showAuctionDetail(String auctionId) {
         try {
             Message request = new Message(Constants.ACTION_AUCTION_DETAIL);
@@ -544,6 +620,9 @@ public class MainApp extends Application {
         }
     }
 
+    /**
+     * Muestra el dialogo para crear una nueva subasta.
+     */
     private void showCreateAuctionDialog() {
         Dialog<Void> dialog = new Dialog<>();
         dialog.setTitle("Nueva Subasta");
@@ -602,6 +681,12 @@ public class MainApp extends Application {
         dialog.showAndWait();
     }
 
+    /**
+     * Maneja una notificacion push recibida del servidor.
+     * Crea una tarjeta visual y la anade al panel de notificaciones.
+     *
+     * @param notification mensaje de notificacion recibido
+     */
     private void handleNotification(Message notification) {
         Platform.runLater(() -> {
             String action = notification.getAction();
@@ -650,6 +735,9 @@ public class MainApp extends Application {
         });
     }
 
+    /**
+     * Cierra la sesion del usuario y vuelve a la vista de login.
+     */
     private void logout() {
         Message response = null;
         try {
@@ -668,6 +756,9 @@ public class MainApp extends Application {
         showLoginView();
     }
 
+    /**
+     * Desconecta el cliente del servidor liberando todos los recursos.
+     */
     private void disconnect() {
         resetAppState(false);
         if (serverListener != null) {
@@ -686,6 +777,13 @@ public class MainApp extends Application {
         }
     }
 
+    /**
+     * Envia un mensaje al servidor y espera la respuesta.
+     *
+     * @param request mensaje a enviar
+     * @return mensaje de respuesta del servidor
+     * @throws IOException si ocurre un error de comunicacion o timeout
+     */
     private Message sendRequest(Message request) throws IOException {
         ensureConnected();
         if (serverListener != null) {
@@ -699,12 +797,23 @@ public class MainApp extends Application {
         return response;
     }
 
+    /**
+     * Verifica que la conexion con el servidor esta activa.
+     *
+     * @throws IOException si la conexion no esta disponible
+     */
     private void ensureConnected() throws IOException {
         if (connection == null || !connection.isConnected() || serverListener == null || !serverListener.isRunning()) {
             throw new IOException("La conexion con el servidor no esta disponible");
         }
     }
 
+    /**
+     * Reinicia el estado de la aplicacion.
+     * Limpia la sesion, las notificaciones y opcionalmente mantiene la conexion.
+     *
+     * @param keepConnection true para mantener la conexion activa
+     */
     private void resetAppState(boolean keepConnection) {
         sessionToken = null;
         currentUser = null;
@@ -728,6 +837,11 @@ public class MainApp extends Application {
         }
     }
 
+    /**
+     * Muestra un dialogo de error al usuario.
+     *
+     * @param message mensaje de error a mostrar
+     */
     private void showError(String message) {
         Platform.runLater(() -> {
             Alert alert = new Alert(Alert.AlertType.ERROR);
@@ -737,6 +851,11 @@ public class MainApp extends Application {
         });
     }
 
+    /**
+     * Muestra un dialogo informativo al usuario.
+     *
+     * @param message mensaje informativo a mostrar
+     */
     private void showInfo(String message) {
         Platform.runLater(() -> {
             Alert alert = new Alert(Alert.AlertType.INFORMATION);
@@ -746,6 +865,12 @@ public class MainApp extends Application {
         });
     }
 
+    /**
+     * Inicia la cuenta regresiva para las etiquetas de tiempo de las subastas.
+     *
+     * @param targets lista de objetivos con etiqueta y segundos restantes
+     * @param onExpire accion a ejecutar cuando alguna subasta expire
+     */
     private void startCountdown(List<CountdownTarget> targets, Runnable onExpire) {
         stopCountdown();
 
@@ -775,6 +900,9 @@ public class MainApp extends Application {
         countdownTimeline.play();
     }
 
+    /**
+     * Detiene la cuenta regresiva activa.
+     */
     private void stopCountdown() {
         if (countdownTimeline != null) {
             countdownTimeline.stop();
@@ -782,6 +910,12 @@ public class MainApp extends Application {
         }
     }
 
+    /**
+     * Formatea los segundos restantes en un texto legible.
+     *
+     * @param remainingSeconds segundos restantes
+     * @return texto formateado (ej: "5m 30s" o "Finalizada")
+     */
     private String formatRemainingTime(long remainingSeconds) {
         if (remainingSeconds <= 0) {
             return "Finalizada";
@@ -795,22 +929,46 @@ public class MainApp extends Application {
         return seconds + "s";
     }
 
+    /**
+     * Formatea un timestamp de puja en formato legible.
+     *
+     * @param timestamp timestamp en milisegundos
+     * @return fecha y hora formateada (dd/MM HH:mm:ss)
+     */
     private String formatBidTimestamp(long timestamp) {
         return BID_TIME_FORMATTER.format(Instant.ofEpochMilli(timestamp));
     }
 
+    /**
+     * Clase interna que asocia una etiqueta de JavaFX con los segundos restantes
+     * para la cuenta regresiva de una subasta.
+     */
     private static class CountdownTarget {
+
+        /** Etiqueta donde se muestra el tiempo restante */
         private final Label label;
+
+        /** Segundos restantes de la cuenta regresiva */
         private long remainingSeconds;
 
+        /**
+         * Constructor del objetivo de cuenta regresiva.
+         *
+         * @param label etiqueta donde mostrar el tiempo
+         * @param remainingSeconds segundos restantes iniciales
+         */
         private CountdownTarget(Label label, long remainingSeconds) {
             this.label = label;
             this.remainingSeconds = Math.max(0, remainingSeconds);
         }
     }
 
+    /**
+     * Punto de entrada principal de la aplicacion JavaFX.
+     *
+     * @param args argumentos de linea de comandos
+     */
     public static void main(String[] args) {
         launch(args);
     }
 }
-
